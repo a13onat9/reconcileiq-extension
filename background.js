@@ -1,5 +1,5 @@
 /**
- * ReconcileIQ Chrome Extension — Background Service Worker v2.0.0
+ * ReconcileIQ Chrome Extension — Background Service Worker v2.0.4
  *
  * Architecture change from v1.x:
  * - REMOVED: captureVisibleTab (caused "all_urls permission" errors on cross-domain tabs)
@@ -125,6 +125,18 @@ function waitForTabLoad(tabId, timeoutMs = 20000) {
   });
 }
 
+// ─── Get extra wait time for known slow SPA pages ─────────────────────────────
+// Some pages (YouTube TV, Google, etc.) render billing content asynchronously
+// well after document load. We wait longer for these.
+function getExtraWaitMs(url) {
+  if (!url) return 2500;
+  if (/tv\.youtube\.com|youtube\.com\/paid_memberships/i.test(url)) return 7000;
+  if (/google\.com/i.test(url)) return 5000;
+  if (/microsoft\.com|office\.com|azure\.com/i.test(url)) return 4000;
+  if (/apple\.com|icloud\.com/i.test(url)) return 4000;
+  return 2500; // default
+}
+
 // ─── Sleep helper ─────────────────────────────────────────────────────────────
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -184,8 +196,9 @@ async function runBackgroundTabCaptureAll({ hrefs, vendor, baseUrl, waitAfterOpe
 
       // Wait for page to fully load
       await waitForTabLoad(bgTabId, 20000);
-      // Extra wait for JS-rendered pages (React/Vue invoice portals)
-      await sleep(waitAfterOpen || 2500);
+      // Extra wait for JS-rendered pages — use per-URL timing for slow SPAs
+      const extraWait = Math.max(waitAfterOpen || 2500, getExtraWaitMs(href));
+      await sleep(extraWait);
 
       // Get page title for labeling
       const tab = await chrome.tabs.get(bgTabId);

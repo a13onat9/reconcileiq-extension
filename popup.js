@@ -501,15 +501,19 @@ async function init() {
     if (captureAllProgress) {
       setProgress(captureAllProgress.current, captureAllProgress.total, captureAllProgress.captured, captureAllProgress.failed);
     }
-  } else if (captureAllResults?.length) {
-    renderActivityPanel(captureAllResults);
-    if (apiBase && activityViewAll) {
-      activityViewAll.href = "#";
-      activityViewAll.style.display = "block";
-      activityViewAll.addEventListener("click", (e) => {
-        e.preventDefault();
-        openTab(apiBase + "/receipts");
-      });
+  } else {
+    // Not capturing — ensure buttons are visible (they start display:none in HTML)
+    setCapturing(false);
+    if (captureAllResults?.length) {
+      renderActivityPanel(captureAllResults);
+      if (apiBase && activityViewAll) {
+        activityViewAll.href = "#";
+        activityViewAll.style.display = "block";
+        activityViewAll.addEventListener("click", (e) => {
+          e.preventDefault();
+          openTab(apiBase + "/receipts");
+        });
+      }
     }
   }
 
