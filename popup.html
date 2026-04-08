@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ReconcileIQ</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 360px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-icon {
+      width: 30px; height: 30px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .header-title { font-size: 14px; font-weight: 700; color: white; }
+    .header-subtitle { font-size: 11px; color: rgba(255,255,255,0.7); margin-top: 1px; }
+
+    .content {
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .status-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%; flex-shrink: 0;
+    }
+    .status-dot.connected { background: #10b981; box-shadow: 0 0 6px #10b981; }
+    .status-dot.disconnected { background: #6b7280; }
+    .status-dot.error { background: #ef4444; }
+    .status-dot.checking { background: #f59e0b; animation: pulse 1s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .status-text { font-size: 11px; color: #94a3b8; }
+    .status-user { font-size: 12px; font-weight: 600; color: #e2e8f0; }
+
+    .section-label {
+      font-size: 10px; font-weight: 600;
+      color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+
+    .input-group { display: flex; flex-direction: column; gap: 6px; }
+
+    input {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: #e2e8f0;
+      font-size: 12px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus { border-color: #4f46e5; }
+    input::placeholder { color: #475569; }
+
+    .btn {
+      padding: 9px 14px; border-radius: 8px;
+      font-size: 12px; font-weight: 600;
+      cursor: pointer; border: none;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-primary { background: #4f46e5; color: white; width: 100%; }
+    .btn-primary:hover:not(:disabled) { background: #4338ca; }
+
+    .btn-secondary {
+      background: #1e293b; color: #94a3b8;
+      border: 1px solid #334155; width: 100%;
+    }
+    .btn-secondary:hover:not(:disabled) { background: #263348; color: #e2e8f0; }
+
+    .btn-capture {
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      color: white; width: 100%;
+      padding: 11px 14px; font-size: 13px;
+    }
+    .btn-capture:hover:not(:disabled) { opacity: 0.9; }
+
+    .btn-capture-all {
+      background: linear-gradient(135deg, #059669, #0d9488);
+      color: white; width: 100%;
+      padding: 11px 14px; font-size: 13px;
+    }
+    .btn-capture-all:hover:not(:disabled) { opacity: 0.9; }
+
+    .btn-stop {
+      background: #dc2626;
+      color: white; width: 100%;
+      padding: 11px 14px; font-size: 13px;
+      display: none;
+    }
+    .btn-stop:hover { background: #b91c1c; }
+
+    /* Progress bar */
+    .progress-wrap {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: none;
+    }
+    .progress-label {
+      font-size: 11px; color: #94a3b8; margin-bottom: 6px;
+      display: flex; justify-content: space-between;
+    }
+    .progress-bar-bg {
+      background: #334155; border-radius: 4px; height: 6px; overflow: hidden;
+    }
+    .progress-bar-fill {
+      background: linear-gradient(90deg, #059669, #10b981);
+      height: 100%; border-radius: 4px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+    .progress-counts {
+      font-size: 10px; color: #64748b; margin-top: 5px; text-align: right;
+    }
+
+    /* Activity panel */
+    .activity-panel {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      overflow: hidden;
+      display: none;
+    }
+    .activity-panel-header {
+      padding: 8px 12px;
+      font-size: 11px; font-weight: 600; color: #94a3b8;
+      background: #162032;
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #334155;
+    }
+    .activity-panel-header .count-badge {
+      background: #4f46e5; color: white;
+      border-radius: 10px; padding: 1px 7px;
+      font-size: 10px; font-weight: 700;
+    }
+    .activity-list {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .activity-list::-webkit-scrollbar { width: 4px; }
+    .activity-list::-webkit-scrollbar-track { background: #1e293b; }
+    .activity-list::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+    .activity-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 12px;
+      border-bottom: 1px solid #1a2540;
+      font-size: 11px;
+    }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-item.ok { color: #86efac; }
+    .activity-item.err { color: #fca5a5; }
+    .activity-item.pending { color: #94a3b8; }
+    .activity-icon { flex-shrink: 0; font-size: 12px; width: 14px; text-align: center; }
+    .activity-label {
+      flex: 1; min-width: 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      color: #cbd5e1;
+    }
+    .activity-link {
+      flex-shrink: 0;
+      color: #818cf8; text-decoration: none; font-size: 10px; font-weight: 600;
+      padding: 2px 6px; background: #1e1b4b; border-radius: 4px;
+    }
+    .activity-link:hover { background: #312e81; }
+    .activity-err-text {
+      flex-shrink: 0; color: #f87171; font-size: 10px;
+      max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .activity-empty {
+      padding: 16px 12px; text-align: center; color: #475569; font-size: 11px;
+    }
+    .activity-view-all {
+      display: block; padding: 8px 12px;
+      background: #4f46e5; color: white;
+      text-align: center; text-decoration: none;
+      font-size: 11px; font-weight: 600;
+      border-top: 1px solid #334155;
+    }
+    .activity-view-all:hover { background: #4338ca; }
+
+    .divider { height: 1px; background: #1e293b; }
+
+    .result-card {
+      background: #0d2a1e; border: 1px solid #166534;
+      border-radius: 8px; padding: 10px 12px;
+      font-size: 11px; color: #86efac; display: none;
+    }
+    .result-card.error { background: #2a0d0d; border-color: #991b1b; color: #fca5a5; }
+
+    .page-info {
+      background: #1e293b; border: 1px solid #334155;
+      border-radius: 8px; padding: 10px 12px;
+    }
+    .page-info-url {
+      font-size: 10px; color: #64748b;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .page-info-title {
+      font-size: 12px; color: #94a3b8; margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .page-vendor-badge {
+      display: inline-block;
+      background: #1e3a5f; color: #60a5fa;
+      border-radius: 4px; padding: 1px 6px;
+      font-size: 10px; font-weight: 600; margin-top: 4px;
+    }
+
+    .footer {
+      padding: 10px 16px;
+      border-top: 1px solid #1e293b;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .footer a { font-size: 10px; color: #4f46e5; text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+    .footer-version { font-size: 10px; color: #475569; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+        <circle cx="12" cy="13" r="4"/>
+      </svg>
+    </div>
+    <div>
+      <div class="header-title">ReconcileIQ</div>
+      <div class="header-subtitle">Receipt Capture</div>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- Connection status -->
+    <div class="status-card" id="status-card">
+      <div class="status-dot checking" id="status-dot"></div>
+      <div>
+        <div class="status-user" id="status-user">Checking connection…</div>
+        <div class="status-text" id="status-text"></div>
+        <div id="status-subtext" style="font-size:10px;color:#64748b;margin-top:1px;"></div>
+      </div>
+    </div>
+
+    <!-- Current page info -->
+    <div class="page-info" id="page-info" style="display:none">
+      <div class="page-info-url" id="page-url"></div>
+      <div class="page-info-title" id="page-title"></div>
+      <div id="vendor-badge" class="page-vendor-badge" style="display:none"></div>
+    </div>
+
+    <!-- Capture All button -->
+    <button class="btn btn-capture-all" id="btn-capture-all" style="display:none" disabled>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="3" width="20" height="14" rx="2"/>
+        <path d="M8 21h8M12 17v4"/>
+      </svg>
+      <span id="capture-all-label">Capture All Receipts</span>
+    </button>
+
+    <!-- Stop button (shown during Capture All) -->
+    <button class="btn btn-stop" id="btn-stop">
+      ⏹ Stop Capture
+    </button>
+
+    <!-- Progress bar -->
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-label">
+        <span id="progress-status">Starting…</span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progress-fill"></div>
+      </div>
+      <div class="progress-counts" id="progress-counts"></div>
+    </div>
+
+    <!-- Activity panel — persistent receipt log -->
+    <div class="activity-panel" id="activity-panel">
+      <div class="activity-panel-header">
+        <span>Captured Receipts</span>
+        <span class="count-badge" id="activity-count">0</span>
+      </div>
+      <div class="activity-list" id="activity-list">
+        <div class="activity-empty">No receipts captured yet…</div>
+      </div>
+      <a class="activity-view-all" id="activity-view-all" href="#" target="_blank" style="display:none">
+        View All in ReconcileIQ →
+      </a>
+    </div>
+
+    <!-- Single capture button -->
+    <button class="btn btn-capture" id="btn-capture" style="display:none" disabled>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+        <circle cx="12" cy="13" r="4"/>
+      </svg>
+      <span id="capture-label">Capture This Page</span>
+    </button>
+
+    <!-- Result feedback -->
+    <div class="result-card" id="result-card"></div>
+
+    <div class="divider"></div>
+
+    <!-- API Configuration -->
+    <div id="config-section">
+    <div class="section-label">Configuration</div>
+
+    <div class="input-group">
+      <input type="password" id="input-token" placeholder="API Token (from ReconcileIQ Settings)" />
+    </div>
+
+    <div class="input-group">
+      <input type="url" id="input-base" placeholder="API Base URL (e.g. https://yourapp.manus.space)" />
+    </div>
+
+    <button class="btn btn-primary" id="btn-save">Save & Connect</button>
+    <button class="btn btn-secondary" id="btn-clear" style="display:none">Disconnect</button>
+    </div><!-- end config-section -->
+  </div>
+
+  <div class="footer">
+    <a href="#" id="link-settings">Open ReconcileIQ Settings</a>
+    <span class="footer-version">v2.0.2</span>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
