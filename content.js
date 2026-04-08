@@ -1,5 +1,5 @@
 /**
- * ReconcileIQ Content Script v2.0.0
+ * ReconcileIQ Content Script v2.0.3
  *
  * Architecture change from v1.x:
  * - No more screenshot capture (background worker does PDF via chrome.debugger)
@@ -56,10 +56,13 @@
     const HREF_PATTERNS = [
       /\/invoice/i, /\/receipt/i, /\/billing\/history/i,
       /\/orders\/\d/i, /\/transactions\/\d/i,
-      /viewinvoice/i, /downloadinvoice/i,
+      /viewinvoice/i, /downloadinvoice/i, /invoiceview/i,
       /invoice_id=/i, /receipt_id=/i,
       /[?&]id=\d/i, /\.pdf(\?|$)/i,
     ];
+
+    // Actions that indicate a payment/cancel flow rather than a view/download — skip these
+    const SKIP_ACTIONS = /[?&]action=(invoicepay|invoicecancel|pay|checkout|cart|order|delete|remove)/i;
 
     // Strip language/locale query params before deduplication so "My Invoices" in
     // Arabic, Turkish, French, etc. all collapse to the same canonical URL.
@@ -93,7 +96,9 @@
         const isNavLink =
           /privacy|terms|help|support|faq|contact|about|login|signup|home|dashboard/i.test(href) &&
           !/invoice|receipt|billing/i.test(href);
-        if (!isNavLink) {
+        // Skip payment/cancel action links (e.g. WHMCS invoicepay, invoicecancel)
+        const isPaymentAction = SKIP_ACTIONS.test(href);
+        if (!isNavLink && !isPaymentAction) {
           seen.add(canonical);
           urls.push(href); // push original href so the actual URL is used
         }
