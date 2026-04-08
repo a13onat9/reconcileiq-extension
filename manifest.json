@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ReconcileIQ Receipt Capture",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "description": "Capture billing page invoices and send them directly to ReconcileIQ for automatic matching.",
   "permissions": [
     "activeTab",

@@ -1,5 +1,5 @@
 /**
- * ReconcileIQ Chrome Extension — Background Service Worker v2.0.4
+ * ReconcileIQ Chrome Extension — Background Service Worker v2.0.5
  *
  * Architecture change from v1.x:
  * - REMOVED: captureVisibleTab (caused "all_urls permission" errors on cross-domain tabs)
@@ -125,16 +125,69 @@ function waitForTabLoad(tabId, timeoutMs = 20000) {
   });
 }
 
-// ─── Get extra wait time for known slow SPA pages ─────────────────────────────
-// Some pages (YouTube TV, Google, etc.) render billing content asynchronously
-// well after document load. We wait longer for these.
-function getExtraWaitMs(url) {
-  if (!url) return 2500;
-  if (/tv\.youtube\.com|youtube\.com\/paid_memberships/i.test(url)) return 7000;
-  if (/google\.com/i.test(url)) return 5000;
-  if (/microsoft\.com|office\.com|azure\.com/i.test(url)) return 4000;
-  if (/apple\.com|icloud\.com/i.test(url)) return 4000;
-  return 2500; // default
+// ─── Wait for network idle (universal — works for any vendor's SPA) ────────────
+// Attaches debugger, enables Network domain, waits until no requests are in-flight
+// for `quietMs` milliseconds, then detaches. Falls back to a fixed sleep on error.
+// This replaces vendor-specific wait times with a universal approach.
+async function waitForNetworkIdle(tabId, { quietMs = 2000, timeoutMs = 15000 } = {}) {
+  try {
+    // Detach first in case a previous run left it attached
+    try { await chrome.debugger.detach({ tabId }); } catch {}
+    await chrome.debugger.attach({ tabId }, "1.3");
+    await chrome.debugger.sendCommand({ tabId }, "Network.enable");
+
+    return await new Promise((resolve) => {
+      let inflight = 0;
+      let quietTimer = null;
+      const startQuietTimer = () => {
+        if (quietTimer) clearTimeout(quietTimer);
+        quietTimer = setTimeout(() => {
+          cleanup();
+          resolve();
+        }, quietMs);
+      };
+
+      // Hard timeout — don't wait forever
+      const hardTimer = setTimeout(() => {
+        cleanup();
+        resolve();
+      }, timeoutMs);
+
+      const handler = (source, method) => {
+        if (source.tabId !== tabId) return;
+        if (method === "Network.requestWillBeSent") {
+          inflight++;
+          if (quietTimer) clearTimeout(quietTimer);
+        } else if (method === "Network.loadingFinished" || method === "Network.loadingFailed") {
+          inflight = Math.max(0, inflight - 1);
+          if (inflight === 0) startQuietTimer();
+        }
+      };
+
+      chrome.debugger.onEvent.addListener(handler);
+
+      function cleanup() {
+        if (quietTimer) clearTimeout(quietTimer);
+        clearTimeout(hardTimer);
+        chrome.debugger.onEvent.removeListener(handler);
+        try { chrome.debugger.sendCommand({ tabId }, "Network.disable"); } catch {}
+        try { chrome.debugger.detach({ tabId }); } catch {}
+      }
+
+      // Start the quiet timer immediately — if no requests are in-flight, we resolve quickly
+      startQuietTimer();
+    });
+  } catch (err) {
+    console.warn("[ReconcileIQ BG] waitForNetworkIdle failed, falling back to fixed wait:", err.message);
+    await sleep(3000); // fallback
+  }
+}
+
+// ─── Check if a PDF is likely blank (too small to contain real content) ───────
+function isPdfLikelyBlank(base64) {
+  // A blank single-page PDF is typically ~3-5 KB in base64.
+  // Real invoices with text are usually > 8 KB.
+  return base64.length < 8000;
 }
 
 // ─── Sleep helper ─────────────────────────────────────────────────────────────
@@ -196,16 +249,24 @@ async function runBackgroundTabCaptureAll({ hrefs, vendor, baseUrl, waitAfterOpe
 
       // Wait for page to fully load
       await waitForTabLoad(bgTabId, 20000);
-      // Extra wait for JS-rendered pages — use per-URL timing for slow SPAs
-      const extraWait = Math.max(waitAfterOpen || 2500, getExtraWaitMs(href));
-      await sleep(extraWait);
+      // Wait for network idle — universal approach that works for any vendor's SPA
+      await waitForNetworkIdle(bgTabId, { quietMs: 2000, timeoutMs: 15000 });
+      // Small extra buffer for final renders after last network request
+      await sleep(800);
 
       // Get page title for labeling
       const tab = await chrome.tabs.get(bgTabId);
       label = tab.title || label;
 
       // Capture as PDF via debugger API
-      const base64 = await captureTabAsPdf(bgTabId);
+      let base64 = await captureTabAsPdf(bgTabId);
+
+      // If PDF looks blank (< 8KB), wait longer and retry once
+      if (isPdfLikelyBlank(base64)) {
+        console.log("[ReconcileIQ BG] PDF looks blank, retrying after extra wait:", href);
+        await sleep(5000);
+        base64 = await captureTabAsPdf(bgTabId);
+      }
 
       // Upload to ReconcileIQ
       const result = await uploadPdf({ base64, vendor, sourceUrl: href, pageTitle: label });
