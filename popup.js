@@ -306,7 +306,13 @@ async function captureCurrentTab() {
     const linkUrl = receiptId && base
       ? base + "/receipts?highlight=" + receiptId
       : (base ? base + "/receipts" : null);
-    showResult("Receipt captured for " + currentVendor, false, linkUrl);
+    showResult(
+      response.duplicate
+        ? "Already captured — existing receipt kept"
+        : "Receipt captured for " + currentVendor,
+      false,
+      linkUrl,
+    );
   } else {
     showResult(response?.error || "Upload failed", true);
   }

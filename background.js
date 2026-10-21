@@ -1,5 +1,5 @@
 /**
- * ReconcileIQ Chrome Extension — Background Service Worker v2.0.6
+ * ReconcileIQ Chrome Extension — Background Service Worker v2.0.7
  *
  * Architecture change from v1.x:
  * - REMOVED: captureVisibleTab (caused "all_urls permission" errors on cross-domain tabs)

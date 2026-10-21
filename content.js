@@ -212,7 +212,10 @@
           btn.disabled = false;
         }
         if (result && result.ok) {
-          setToast("\u2713 Receipt captured!", "rgba(5,150,105,0.92)");
+          const successMessage = result.duplicate
+            ? "\u2713 Already captured — existing receipt kept"
+            : "\u2713 Receipt captured!";
+          setToast(successMessage, "rgba(5,150,105,0.92)");
           setTimeout(() => setToast(null), 6000);
         } else {
           setToast("\u2717 " + ((result && result.error) || "Capture failed"), "rgba(220,38,38,0.92)");
