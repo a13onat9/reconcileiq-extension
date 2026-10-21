@@ -9,6 +9,8 @@
  *   because the content script detects invoice links universally
  */
 
+const DEFAULT_API_BASE = "https://reconcile.leveloneinnovations.com";
+
 // ─── Vendor name map (for display only) ──────────────────────────────────────
 const VENDOR_MAP = [
   { pattern: /tv\.youtube\.com/, vendor: "YouTube TV" },
@@ -207,8 +209,9 @@ async function loadConfig() {
     inputToken.placeholder = "...";
     btnClear.style.display = "block";
   }
-  if (apiBase) inputBase.value = apiBase;
-  return { apiToken, apiBase };
+  const effectiveApiBase = apiBase || DEFAULT_API_BASE;
+  inputBase.value = effectiveApiBase;
+  return { apiToken, apiBase: effectiveApiBase };
 }
 
 // ─── Fetch user's vendor list ─────────────────────────────────────────────────
@@ -519,8 +522,8 @@ async function init() {
 
   linkSettings.addEventListener("click", (e) => {
     e.preventDefault();
-    const base = apiBase || "https://reconcileiq.manus.space";
-    chrome.tabs.create({ url: base + "/settings?tab=extension" });
+    const base = apiBase || DEFAULT_API_BASE;
+    chrome.tabs.create({ url: base + "/settings/extension" });
   });
 }
 
