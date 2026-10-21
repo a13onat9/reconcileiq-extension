@@ -1,5 +1,5 @@
 /**
- * ReconcileIQ Chrome Extension — Background Service Worker v2.0.5
+ * ReconcileIQ Chrome Extension — Background Service Worker v2.0.6
  *
  * Architecture change from v1.x:
  * - REMOVED: captureVisibleTab (caused "all_urls permission" errors on cross-domain tabs)
@@ -317,7 +317,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // PDF capture of the current tab (replaces captureVisibleTab screenshot)
   if (message.type === "CAPTURE_TAB_PDF") {
-    const { tabId, vendor, sourceUrl, pageTitle } = message.payload;
+    const { tabId: requestedTabId, vendor, sourceUrl, pageTitle } = message.payload;
+    const tabId = requestedTabId ?? sender?.tab?.id;
+    if (!Number.isInteger(tabId)) {
+      sendResponse({ ok: false, error: "Unable to identify the browser tab to capture." });
+      return false;
+    }
     captureAndUploadTab({ tabId, vendor, sourceUrl, pageTitle }).then(sendResponse);
     return true;
   }
